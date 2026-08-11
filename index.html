@@ -251,6 +251,12 @@ html,body{margin:0;padding:0;background:#06100c;overflow:hidden;overscroll-behav
   border:2px solid color-mix(in srgb,var(--amarelo) 24%,transparent);
   border-top-color:var(--amarelo);animation:spin 700ms linear infinite;pointer-events:none}
 
+/* the ballot mark: fixed to the frame's own top-right corner, scaled off the
+   frame's container size so it holds proportion across every video shape */
+.badge{position:absolute;top:clamp(8px,3.4cqw,16px);right:clamp(8px,3.4cqw,16px);
+  width:clamp(38px,11cqw,64px);aspect-ratio:1;pointer-events:none;
+  filter:drop-shadow(0 2px 6px rgba(0,0,0,.5))}
+
 /* ═══ CHAPTER CARD — the title card that covers the next chapter's load ══ */
 .card{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:flex-end;
   padding:6cqw;cursor:pointer;
@@ -513,6 +519,22 @@ html,body{margin:0;padding:0;background:#06100c;overflow:hidden;overscroll-behav
       <div class="card-rule"></div>
     </div>
   </sc-if>
+
+  <!-- The ballot number, on every chapter, in the one corner nothing else
+       ever occupies. Sized off the frame's own container query units, so it
+       holds the same proportion of the picture whether the chapter is a
+       square clip or a 9:16 one, and stays legible over any footage behind
+       it — a white ring plus a soft shadow do that instead of a solid card,
+       so the mark reads as a badge on the film rather than a sticker over it. -->
+  <div class="badge" aria-hidden="true">
+    <svg viewBox="0 0 100 100" width="100%" height="100%">
+      <circle cx="50" cy="50" r="47" fill="var(--verde)" stroke="var(--color-text)" stroke-width="2.5"></circle>
+      <text x="50" y="38" text-anchor="middle" fill="var(--color-text)"
+        font-family="var(--font-body)" font-weight="600" font-size="15" letter-spacing="1.5">VOTE</text>
+      <text x="50" y="78" text-anchor="middle" fill="var(--color-text)"
+        font-family="var(--font-heading)" font-weight="600" font-size="42" letter-spacing="-1">15</text>
+    </svg>
+  </div>
 </div>
 
 <!-- Intro copy — always mounted so it can fade out as the frame travels -->
@@ -542,13 +564,18 @@ html,body{margin:0;padding:0;background:#06100c;overflow:hidden;overscroll-behav
 </div>
 
 <div class="bar-bot">
-  <div class="scrub {{scrubCls}}" onPointerDown="{{seekDown}}" onPointerMove="{{seekMove}}" onPointerUp="{{seekUp}}"
+  <div class="scrub {{scrubCls}}" onPointerDown="{{seekDown}}" onPointerMove="{{seekMove}}"
+    onPointerUp="{{seekUp}}" onPointerCancel="{{seekUp}}" onLostPointerCapture="{{seekUp}}"
     onKeyDown="{{seekKey}}" tabIndex="{{scrubTab}}" role="slider" aria-label="Posição do vídeo"
     aria-valuemin="{{ 0 }}" aria-valuemax="{{ 100 }}" aria-valuenow="{{progressRounded}}" aria-valuetext="{{timeLabel}}">
     <div class="rail">
       <div class="buf" style="width:{{bufPct}}%"></div>
-      <div class="fill" style="width:{{progressPct}}%"></div>
-      <div class="knob" style="left:{{progressPct}}%"></div>
+      <!-- fill/knob position is driven every animation frame directly off
+           video.currentTime (see startTicker), not off React state — so the
+           bar can never lag behind or freeze independent of what is playing.
+           These bindings only supply the correct first-paint value. -->
+      <div class="fill" ref="{{setFill}}" style="width:{{progressPct}}%"></div>
+      <div class="knob" ref="{{setKnob}}" style="left:{{progressPct}}%"></div>
     </div>
   </div>
   <div class="row">
@@ -665,6 +692,7 @@ class Component extends DCLogic {
   _thrifty = this.thrifty();
 
   componentDidMount() {
+    this.startTicker();
     this._key = (e) => {
       const st = this.state;
       if (st.showList) { if (e.key === 'Escape') this.setState({ showList: false }); return; }
@@ -688,9 +716,33 @@ class Component extends DCLogic {
   componentWillUnmount() {
     window.removeEventListener('keydown', this._key);
     clearTimeout(this._cardT);
+    cancelAnimationFrame(this._raf);
   }
 
   setVideo = (el) => { this.video = el; };
+  setFill = (el) => { this.fillEl = el; };
+  setKnob = (el) => { this.knobEl = el; };
+
+  /* The scrub bar's position is painted every animation frame, straight off
+     video.currentTime, independent of React's render cycle. A dropped or
+     delayed onTimeUpdate — which happens on real phones under load — can
+     no longer leave the bar stuck while the video keeps playing: this loop
+     has nothing to miss, it just reads where the video already is. */
+  startTicker() {
+    const tick = () => {
+      const v = this.video;
+      /* skip the work entirely while paused or off the video phase — the
+         value can't have changed, so there is nothing to paint */
+      if (v && !v.paused && this.state.phase === 'video' && this.fillEl && this.knobEl) {
+        const d = (isFinite(v.duration) && v.duration) || this.chapters[this.state.idx].dur;
+        const pct = (d ? Math.min(100, Math.max(0, (v.currentTime / d) * 100)) : 0).toFixed(1) + '%';
+        if (this.fillEl.style.width !== pct) this.fillEl.style.width = pct;
+        if (this.knobEl.style.left !== pct) this.knobEl.style.left = pct;
+      }
+      this._raf = requestAnimationFrame(tick);
+    };
+    this._raf = requestAnimationFrame(tick);
+  }
 
   /* Warm the next chapter's poster while the current one plays, so the card
      never opens on an empty frame. One image, not a second video stream. */
@@ -853,6 +905,7 @@ class Component extends DCLogic {
       toggle: this.toggle, next: this.next,
       toggleMute: this.toggleMute, toggleFull: this.toggleFull,
       seekDown: this.seekDown, seekMove: this.seekMove, seekUp: this.seekUp, seekKey: this.seekKey,
+      setFill: this.setFill, setKnob: this.setKnob,
       openList: () => this.setState({ showList: true }),
       closeList: () => this.setState({ showList: false }),
 
