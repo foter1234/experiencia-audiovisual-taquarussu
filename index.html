@@ -80,8 +80,11 @@ html,body{margin:0;padding:0;background:#06100c;overflow:hidden;overscroll-behav
   --fx:calc((100vw - var(--fw)) / 2);
   --fy:calc(var(--stage-t) + (var(--stage-h) - var(--fh)) / 2);
   /* chrome tracks the film's width exactly, and only stops following it
-     when the film gets too narrow to hold a usable control row */
-  --cw:max(var(--fw), min(340px, calc(100vw - var(--gl) - var(--gr))));
+     when the film gets too narrow to hold a usable control row. The floor is
+     what the tightened row actually measures (see the container queries on
+     .bar-bot), not a guess — a taller floor made the controls stick out past
+     a 9:16 film on desktop, which is what read as "desalinhado". */
+  --cw:max(var(--fw), min(290px, calc(100vw - var(--gl) - var(--gr))));
   --cx:calc((100vw - var(--cw)) / 2);
 }
 .exp *{box-sizing:border-box}
@@ -105,7 +108,7 @@ html,body{margin:0;padding:0;background:#06100c;overflow:hidden;overscroll-behav
    around the film darker than the opening for no reason. */
 .ground{position:absolute;inset:0;pointer-events:none;
   background:url('images/vote15-wash.webp') center/cover;
-  opacity:.4}
+  opacity:.34}
 
 /* a flag rule along the foot of the page: hard edges, two colours, no glow */
 .flag{position:absolute;left:0;right:0;bottom:0;height:4px;pointer-events:none;
@@ -199,8 +202,12 @@ html,body{margin:0;padding:0;background:#06100c;overflow:hidden;overscroll-behav
              top var(--t-morph) var(--e-io),opacity var(--t-mid) var(--e-out),visibility 0s}
 [data-phase="video"] .bar-top,[data-phase="video"] .bar-bot{transition-delay:0s,0s,0s,420ms}
 .bar-top{top:calc(var(--fy) - var(--topbar));height:var(--topbar);
-  display:flex;align-items:center;gap:14px;min-width:0}
-.bar-bot{top:calc(var(--fy) + var(--fh));height:var(--ctrls);padding-top:14px}
+  display:flex;align-items:center;gap:14px;min-width:0;
+  /* the Capítulos button is positioned over this bar's right end, so the
+     title reserves its width and ellipsises instead of running under it */
+  padding-right:124px}
+.bar-bot{top:calc(var(--fy) + var(--fh));height:var(--ctrls);padding-top:14px;
+  container-type:inline-size}
 /* Leaving really is immediate: the instant a chapter ends, its state is
    already the NEXT chapter's (idx, cur, dur all reset together) — so a
    280ms fade here would spend that whole time showing "0:00 / [next
@@ -246,6 +253,20 @@ html,body{margin:0;padding:0;background:#06100c;overflow:hidden;overscroll-behav
 .nextbtn svg{transition:transform 260ms var(--e-out)}
 .nextbtn:hover{color:var(--color-text)}
 .nextbtn:hover svg{transform:translateX(3px)}
+
+/* A narrow film gives the controls a narrow band. These react to that band,
+   not to the viewport, so a 9:16 chapter on a wide desktop tightens exactly
+   like it would on a phone — and never wraps. */
+@container (max-width:400px){
+  .row{gap:9px}
+  .pbtn{width:46px;height:46px}
+  .ibtn{width:38px;height:38px}
+  .time{font-size:12px}
+  .nextbtn{font-size:14px;gap:7px;padding-left:8px}
+}
+@container (max-width:330px){
+  .full-btn{display:none}
+}
 
 /* overlays that live inside the frame */
 .veil{position:absolute;inset:0;display:grid;place-items:center;
