@@ -1,0 +1,9 @@
+# videos/ guarda os arquivos originais, antes da otimização para web, mais 7
+# vídeos que a experiência não usa. É o backup local — 131MB que não têm por
+# que viver no repositório nem no deploy. Não apague sem ter outra cópia.
+videos/
+
+.vercel/
+node_modules/
+.DS_Store
+*.log

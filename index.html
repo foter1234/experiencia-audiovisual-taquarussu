@@ -1,0 +1,901 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<!-- First paint is the dark ground, never a white flash and never the raw
+     template. The runtime hides the template itself, but only once it has
+     booted; this covers the gap before that. -->
+<style>html,body{margin:0;background:#06100c}x-dc{display:none}</style>
+<!-- React is served from this deployment, not from unpkg. The runtime skips
+     its own CDN fetch when window.React is already there, so nothing on the
+     page waits on a third-party host to come back. -->
+<script src="./vendor/react.production.min.js"></script>
+<script src="./vendor/react-dom.production.min.js"></script>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link rel="stylesheet" href="_ds/nocturne-dc4615a2-99c6-4ed2-867d-b8d96fc761f9/styles.css">
+<script src="_ds/nocturne-dc4615a2-99c6-4ed2-867d-b8d96fc761f9/_ds_bundle.js"></script>
+<style>
+html,body{margin:0;padding:0;background:#06100c;overflow:hidden;overscroll-behavior:none;-webkit-text-size-adjust:100%}
+::selection{background:color-mix(in srgb,var(--amarelo) 34%,transparent)}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   The experience is one composed object: a film frame, and chrome that is
+   glued to that frame's edges. Every position below derives from --fx/--fy/
+   --fw/--fh, so nothing floats independently and nothing can collide.
+   ───────────────────────────────────────────────────────────────────────── */
+.exp{
+  position:fixed;inset:0;overflow:hidden;
+  background:var(--ink);color:var(--color-text);
+  font-family:var(--font-body);-webkit-font-smoothing:antialiased;
+
+  /* The ground is near-black with the campaign's green underneath it, felt
+     rather than seen — and it drops to neutral the moment a film starts, so
+     nothing tints what you are watching. */
+  --ink:#06100c;
+  /* Campaign palette, sampled from their own graphics (the 15 / ROBERTO NEM
+     badge): flag green and flag yellow. Loudness comes from saturated colour
+     at scale, never from glow. */
+  --verde:#009048;
+  --verde-vivo:#12b45c;
+  --verde-claro:#4ed88b;      /* ação: tudo que se clica */
+  --verde-claro-2:#6ee7a0;
+  --amarelo:#f0d000;          /* conteúdo: a borda do filme */
+  --amarelo-vivo:#ffdd2e;
+  --tinta-botao:#06170e;      /* glifo sobre o verde claro — 10:1 */
+  --line:color-mix(in srgb, var(--color-neutral-100) 12%, transparent);
+  --frame-edge:color-mix(in srgb, var(--color-neutral-100) 17%, transparent);
+  --line-soft:color-mix(in srgb, var(--color-neutral-100) 7%, transparent);
+  --safe-t:env(safe-area-inset-top,0px);
+  --safe-b:env(safe-area-inset-bottom,0px);
+  --safe-l:env(safe-area-inset-left,0px);
+  --safe-r:env(safe-area-inset-right,0px);
+
+  --gut:clamp(16px,4.4vw,76px);
+  --gl:calc(var(--gut) + var(--safe-l));
+  --gr:calc(var(--gut) + var(--safe-r));
+  --pad-v:clamp(12px,2.2dvh,26px);
+
+  /* motion — a settle curve for chrome, a heavier one for the frame */
+  --e-out:cubic-bezier(.22,.61,.28,1);
+  --e-io:cubic-bezier(.62,.02,.16,1);
+  --t-fast:180ms;--t-mid:320ms;--t-slow:600ms;--t-morph:820ms;
+
+  --topbar:54px;--ctrls:104px;
+  --ar:1;
+  transition:background-color 900ms var(--e-io);
+
+  /* frame geometry — the player composition, and the default everywhere */
+  --stage-t:calc(var(--safe-t) + var(--pad-v) + var(--topbar));
+  --stage-h:max(200px, calc(100dvh - var(--safe-t) - var(--safe-b) - 2*var(--pad-v) - var(--topbar) - var(--ctrls)));
+  --fmaxh:calc(var(--stage-h) - 16px);
+  --fmaxw:min(940px, calc(100vw - var(--gl) - var(--gr)));
+  --fw:min(var(--fmaxw), calc(var(--fmaxh) * var(--ar)));
+  --fh:calc(var(--fw) / var(--ar));
+  --fx:calc((100vw - var(--fw)) / 2);
+  --fy:calc(var(--stage-t) + (var(--stage-h) - var(--fh)) / 2);
+  /* chrome tracks the film's width exactly, and only stops following it
+     when the film gets too narrow to hold a usable control row */
+  --cw:max(var(--fw), min(340px, calc(100vw - var(--gl) - var(--gr))));
+  --cx:calc((100vw - var(--cw)) / 2);
+}
+.exp *{box-sizing:border-box}
+/* zero-specificity reset, so every component class below still wins */
+.exp :where(button){font:inherit;color:inherit;background:none;border:none;padding:0;cursor:pointer;text-align:inherit}
+.exp :where(a){color:inherit;text-decoration:none}
+.exp :focus-visible{outline:2px solid var(--verde-claro);outline-offset:3px;border-radius:2px}
+
+.exp[data-phase="video"],.exp[data-phase="card"]{--ink:#07080a}
+
+/* Two very wide, very soft pools of green, off-centre and overlapping, with
+   no stop sharp enough to show an edge — the colour is out of focus by
+   construction, which costs nothing, where a real blur filter would cost a
+   repaint on every frame. */
+.ground{position:absolute;inset:0;pointer-events:none;
+  background:
+    radial-gradient(122% 80% at 14% -6%, color-mix(in srgb, var(--verde) 12%, transparent) 0%,
+      color-mix(in srgb, var(--verde) 4%, transparent) 44%, transparent 80%),
+    radial-gradient(104% 74% at 92% 106%, color-mix(in srgb, var(--amarelo) 9%, transparent) 0%,
+      color-mix(in srgb, var(--amarelo) 3%, transparent) 40%, transparent 76%);
+  transition:opacity 900ms var(--e-io)}
+.exp[data-phase="video"] .ground,.exp[data-phase="card"] .ground{opacity:.25}
+
+/* a flag rule along the foot of the page: hard edges, two colours, no glow */
+.flag{position:absolute;left:0;right:0;bottom:0;height:4px;pointer-events:none;
+  background:linear-gradient(90deg,var(--verde-claro) 0 58%,var(--amarelo) 58% 100%);
+  transition:opacity 700ms var(--e-io),transform 700ms var(--e-io)}
+.exp[data-phase="video"] .flag,.exp[data-phase="card"] .flag{opacity:0;transform:translateY(100%)}
+
+/* ═══ FRAME ═══════════════════════════════════════════════════════════════ */
+.frame{
+  position:absolute;left:var(--fx);top:var(--fy);width:var(--fw);height:var(--fh);
+  container-type:size;
+  background:#000;
+  box-shadow:0 0 0 3px var(--amarelo), 0 26px 70px rgba(0,0,0,.66);
+  transition:left var(--t-morph) var(--e-io),top var(--t-morph) var(--e-io),
+             width var(--t-morph) var(--e-io),height var(--t-morph) var(--e-io),
+             opacity var(--t-slow) var(--e-out);
+}
+/* a hard yellow bar under the green frame — a flag device, not a glow. It is
+   a mark for the opening; in the player the progress bar sits there and is
+   already yellow, so the mark would just read as a second one. */
+.frame::after{content:'';position:absolute;left:0;bottom:-3px;height:3px;width:34%;
+  background:var(--verde-claro);transform:translateY(100%);
+  transition:opacity var(--t-mid) var(--e-out)}
+[data-phase="video"] .frame::after,[data-phase="card"] .frame::after{opacity:0}
+/* entrance is scoped to the intro so a filled animation can never pin the
+   opacity that later phases need to change */
+[data-phase="intro"] .frame{animation:fade var(--t-slow) var(--e-out) both}
+.media{position:absolute;inset:0;width:100%;height:100%;object-fit:var(--fit,contain);display:block;
+  background:#000;transition:opacity var(--t-mid) var(--e-out)}
+[data-phase="video"] .media{cursor:pointer}
+[data-phase="card"] .media{opacity:.44}
+[data-phase="end"] .frame{opacity:0;pointer-events:none;transition-duration:var(--t-slow)}
+[data-phase="end"] .bar-top,[data-phase="end"] .bar-bot{opacity:0}
+
+/* ═══ INTRO ═══════════════════════════════════════════════════════════════ */
+/* Hidden panels also leave the tab order — a faded-out button must not be
+   reachable by keyboard. visibility flips only after the fade has run. */
+.copy{position:absolute;
+  transition:opacity var(--t-mid) var(--e-out),transform var(--t-mid) var(--e-out),visibility 0s}
+[data-phase="intro"] .copy{opacity:1;transform:none;visibility:visible}
+.exp:not([data-phase="intro"]) .copy{opacity:0;transform:translateY(-8px);
+  pointer-events:none;visibility:hidden;transition-delay:0s,0s,var(--t-mid)}
+
+.eyebrow{display:flex;align-items:center;gap:12px;
+  font:500 clamp(11px,.85vw,12px)/1 var(--font-body);letter-spacing:.16em;text-transform:uppercase;
+  color:var(--color-neutral-400);animation:fadeUp 420ms var(--e-out) 120ms both}
+.eyebrow i{display:block;width:26px;height:2px;background:var(--verde-claro);
+  transform-origin:left;animation:ruleIn 520ms var(--e-out) 200ms both}
+
+/* One line, always. "A força que vem do povo" measures 11.16x its own
+   font-size, so the size is derived from the column it has to fit — with a
+   margin for the fallback font — instead of being guessed and then wrapped. */
+.title{margin:clamp(16px,2.4dvh,26px) 0 0;
+  font:500 var(--title-size,44px)/1.06 var(--font-heading);letter-spacing:-.034em;
+  color:var(--color-text);white-space:nowrap}
+.ln{display:block;overflow:hidden;padding-bottom:.09em;margin-bottom:-.09em}
+.ln>span{display:block;animation:lineUp 640ms var(--e-io) both}
+.ln:nth-child(1)>span{animation-delay:220ms}
+.ln:nth-child(2)>span{animation-delay:290ms}
+.ln:nth-child(3)>span{animation-delay:360ms}
+
+.lead{margin:clamp(14px,2dvh,22px) 0 0;max-width:34ch;
+  font:400 clamp(15px,1.15vw,18px)/1.6 var(--font-body);color:var(--color-neutral-300);
+  animation:fadeUp 480ms var(--e-out) 560ms both}
+
+.cta{display:inline-flex;align-items:center;gap:18px;margin-top:clamp(22px,3.4dvh,38px);
+  padding:4px;animation:fadeUp 420ms var(--e-out) 740ms both}
+.cta-disc{position:relative;flex:none;display:grid;place-items:center;
+  width:clamp(60px,5vw,74px);aspect-ratio:1;border-radius:50%;
+  background:var(--verde-claro);color:var(--tinta-botao);border:none;
+  transition:background var(--t-fast) var(--e-out),transform var(--t-fast) var(--e-out)}
+.cta-disc svg{margin-left:.16em;transition:transform 260ms var(--e-out)}
+.cta-txt{display:flex;flex-direction:column;align-items:flex-start;gap:7px;text-align:left}
+.cta-lbl{font:500 clamp(17px,1.3vw,20px)/1 var(--font-body);letter-spacing:-.005em}
+.cta-rule{width:100%;height:2px;background:var(--verde-claro);
+  transform:scaleX(.34);transform-origin:left;transition:transform 380ms var(--e-out)}
+.cta:hover .cta-disc,.cta:focus-visible .cta-disc{background:var(--verde-claro-2);transform:scale(1.04)}
+.cta:hover .cta-disc svg{transform:translateX(2px)}
+.cta:hover .cta-rule,.cta:focus-visible .cta-rule{transform:scaleX(1)}
+
+
+.foot{position:absolute;left:var(--gl);bottom:calc(var(--safe-b) + var(--pad-v));
+  font:400 12px/1 var(--font-body);color:var(--color-neutral-600);letter-spacing:.02em;
+  opacity:0;pointer-events:none;transition:opacity var(--t-mid) var(--e-out)}
+
+/* ═══ PLAYER CHROME — pinned to the frame's edges ════════════════════════ */
+/* The chrome travels with the frame and only settles in afterwards: the film
+   arrives first, the controls follow it. Leaving is immediate. */
+.bar-top,.bar-bot{position:absolute;left:var(--cx);width:var(--cw);
+  transition:left var(--t-morph) var(--e-io),width var(--t-morph) var(--e-io),
+             top var(--t-morph) var(--e-io),opacity var(--t-mid) var(--e-out),visibility 0s}
+[data-phase="video"] .bar-top,[data-phase="video"] .bar-bot{transition-delay:0s,0s,0s,420ms}
+.bar-top{top:calc(var(--fy) - var(--topbar));height:var(--topbar);
+  display:flex;align-items:center;gap:14px;min-width:0}
+.bar-bot{top:calc(var(--fy) + var(--fh));height:var(--ctrls);padding-top:14px}
+.exp:not([data-phase="video"]) .bar-top,
+.exp:not([data-phase="video"]) .bar-bot{opacity:0;pointer-events:none;visibility:hidden}
+[data-phase="video"] .bar-top,[data-phase="video"] .bar-bot{visibility:visible}
+
+.now-num{font:500 12px/1 var(--font-body);letter-spacing:.14em;color:var(--amarelo);
+  font-variant-numeric:tabular-nums;flex:none}
+.now-title{font:400 clamp(14px,1.15vw,17px)/1.3 var(--font-body);color:var(--color-neutral-200);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+
+/* scrubber */
+.scrub{position:relative;height:20px;display:flex;align-items:center;cursor:pointer;touch-action:none}
+/* a source served without HTTP range support cannot be scrubbed — show the
+   position, but don't offer a control that would do nothing */
+.scrub.locked{cursor:default;pointer-events:none}
+.scrub.locked .knob{display:none}
+.rail{position:relative;flex:1;height:3px;background:color-mix(in srgb,var(--color-neutral-100) 14%,transparent)}
+.buf{position:absolute;left:0;top:0;bottom:0;background:color-mix(in srgb,var(--color-neutral-100) 12%,transparent)}
+.fill{position:absolute;left:0;top:0;bottom:0;background:var(--verde-claro)}
+.knob{position:absolute;top:50%;width:12px;height:12px;border-radius:50%;background:var(--verde-claro-2);
+  transform:translate(-50%,-50%) scale(.72);transition:transform var(--t-fast) var(--e-out)}
+.scrub:hover .knob,.scrub:focus-visible .knob{transform:translate(-50%,-50%) scale(1)}
+
+.row{display:flex;align-items:center;gap:14px;margin-top:14px}
+.pbtn{flex:none;width:52px;height:52px;border-radius:50%;border:none;
+  background:var(--verde-claro);color:var(--tinta-botao);display:grid;place-items:center;
+  transition:background var(--t-fast) var(--e-out),transform var(--t-fast) var(--e-out)}
+.pbtn:hover{background:var(--verde-claro-2);transform:scale(1.05)}
+.time{font:400 13px/1 var(--font-body);color:var(--color-neutral-400);font-variant-numeric:tabular-nums;
+  letter-spacing:.02em;flex:none}
+.grow{flex:1;min-width:8px}
+.ibtn{flex:none;width:44px;height:44px;border-radius:50%;color:var(--color-neutral-400);
+  display:grid;place-items:center;transition:color var(--t-fast),background var(--t-fast)}
+.ibtn:hover{color:var(--color-neutral-100);background:color-mix(in srgb,var(--color-neutral-100) 7%,transparent)}
+.nextbtn{flex:none;display:inline-flex;align-items:center;gap:9px;padding:11px 4px 11px 12px;
+  font:500 15px/1 var(--font-body);color:var(--color-neutral-200);
+  transition:color var(--t-fast) var(--e-out)}
+.nextbtn svg{transition:transform 260ms var(--e-out)}
+.nextbtn:hover{color:var(--color-text)}
+.nextbtn:hover svg{transform:translateX(3px)}
+
+/* overlays that live inside the frame */
+.veil{position:absolute;inset:0;display:grid;place-items:center;
+  background:color-mix(in srgb,#000 46%,transparent);cursor:pointer;
+  animation:fade var(--t-mid) var(--e-out) both}
+.veil-disc{width:clamp(66px,16cqw,96px);aspect-ratio:1;border-radius:50%;display:grid;place-items:center;
+  background:var(--verde-claro);color:var(--tinta-botao);
+  transition:background var(--t-fast) var(--e-out),transform var(--t-fast) var(--e-out)}
+.veil:hover .veil-disc{background:var(--verde-claro-2);transform:scale(1.04)}
+.spin{position:absolute;left:50%;top:50%;width:30px;height:30px;margin:-15px 0 0 -15px;border-radius:50%;
+  border:2px solid color-mix(in srgb,var(--amarelo) 24%,transparent);
+  border-top-color:var(--amarelo);animation:spin 700ms linear infinite;pointer-events:none}
+
+/* ═══ CHAPTER CARD — the title card that covers the next chapter's load ══ */
+.card{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:flex-end;
+  padding:6cqw;cursor:pointer;
+  background:linear-gradient(to top, color-mix(in srgb,#000 88%,transparent) 30%, color-mix(in srgb,#000 58%,transparent));
+  animation:fade 380ms var(--e-out) both}
+.card-num{font:500 clamp(10px,2.6cqw,13px)/1 var(--font-body);letter-spacing:.18em;text-transform:uppercase;
+  color:var(--amarelo);animation:fadeUp 460ms var(--e-out) 60ms both}
+.card-title{margin-top:.5em;font:500 clamp(22px,7.4cqw,46px)/1.08 var(--font-heading);letter-spacing:-.025em;
+  color:var(--color-text);animation:fadeUp 560ms var(--e-io) 140ms both}
+.card-rule{margin-top:1.4em;height:2px;background:var(--verde-claro);
+  transform-origin:left;animation:cardBar var(--card-ms,2200ms) linear 120ms both}
+
+/* ═══ CAPÍTULOS BUTTON ═══════════════════════════════════════════════════ */
+.btn-list{position:absolute;top:calc(var(--safe-t) + var(--pad-v));right:var(--gr);z-index:12;
+  display:inline-flex;align-items:center;gap:9px;padding:9px 14px;border-radius:var(--radius-sm);
+  border:1px solid var(--line);color:var(--color-neutral-300);
+  font:500 14px/1 var(--font-body);
+  transition:color var(--t-fast),border-color var(--t-fast),background var(--t-fast),
+             top var(--t-morph) var(--e-io),right var(--t-morph) var(--e-io),opacity var(--t-mid)}
+.btn-list:hover{color:var(--color-text);border-color:var(--verde-claro);
+  background:color-mix(in srgb,var(--color-neutral-100) 5%,transparent)}
+[data-phase="video"] .btn-list,[data-phase="card"] .btn-list{
+  top:calc(var(--fy) - var(--topbar) + (var(--topbar) - 36px)/2);
+  right:calc(100vw - var(--cx) - var(--cw));border-color:transparent}
+[data-phase="card"] .btn-list{opacity:0;pointer-events:none;visibility:hidden}
+
+/* ═══ CHAPTER LIST ═══════════════════════════════════════════════════════ */
+.sheet{position:absolute;inset:0;z-index:20;overflow-y:auto;overscroll-behavior:contain;
+  padding:calc(var(--safe-t) + var(--pad-v)) var(--gr) calc(var(--safe-b) + var(--pad-v)) var(--gl);
+  background:color-mix(in srgb,var(--ink) 97%,transparent);
+  animation:fade 260ms var(--e-out) both}
+.sheet-in{width:min(680px,100%);margin:0 auto;padding:clamp(8px,4dvh,48px) 0 24px}
+.sheet-head{display:flex;align-items:baseline;justify-content:space-between;gap:16px;
+  padding-bottom:16px;border-bottom:1px solid var(--line)}
+.sheet-title{font:500 clamp(19px,2vw,24px)/1.2 var(--font-heading);letter-spacing:-.02em}
+.sheet-close{font:400 14px/1 var(--font-body);color:var(--color-neutral-400);
+  padding:8px 2px;transition:color var(--t-fast)}
+.sheet-close:hover{color:var(--color-text)}
+.crow{display:grid;grid-template-columns:2.4em 1fr auto;align-items:baseline;gap:16px;width:100%;
+  padding:15px 10px 15px 12px;text-align:left;border-bottom:1px solid var(--line-soft);
+  transition:background var(--t-fast) var(--e-out),padding-left var(--t-fast) var(--e-out);
+  animation:fadeUp 340ms var(--e-out) both}
+.crow:hover{background:color-mix(in srgb,var(--color-neutral-100) 5%,transparent);padding-left:20px}
+.crow-n{font:400 12px/1 var(--font-body);color:var(--color-neutral-600);font-variant-numeric:tabular-nums;letter-spacing:.1em}
+.crow-t{font:400 clamp(16px,1.5vw,19px)/1.3 var(--font-body);color:var(--color-neutral-200)}
+.crow-d{font:400 12px/1 var(--font-body);color:var(--color-neutral-600);font-variant-numeric:tabular-nums}
+.crow.on .crow-n,.crow.on .crow-t{color:var(--amarelo)}
+/* the mark sits inside the row, so it can never be clipped by a tight gutter */
+.crow.on{box-shadow:inset 3px 0 0 var(--verde-claro)}
+
+/* ═══ END ════════════════════════════════════════════════════════════════ */
+.end{position:absolute;inset:0;z-index:8;display:flex;flex-direction:column;justify-content:center;
+  padding:calc(var(--safe-t) + var(--pad-v)) var(--gr) calc(var(--safe-b) + var(--pad-v)) var(--gl);
+  animation:fade var(--t-slow) var(--e-out) both}
+.end-in{width:min(640px,100%)}
+.end h2{margin:0;font:500 clamp(34px,4.6vw,68px)/1.06 var(--font-heading);letter-spacing:-.03em}
+.end h2 .ln>span{animation-delay:120ms}
+.end-sub{margin-top:16px;font:400 clamp(15px,1.2vw,18px)/1.6 var(--font-body);color:var(--color-neutral-300);
+  animation:fadeUp 480ms var(--e-out) 420ms both}
+.end-rule{width:100%;height:3px;margin:clamp(28px,5dvh,52px) 0 0;transform-origin:left;
+  background:linear-gradient(90deg,var(--verde-claro) 0 62%,var(--amarelo) 62% 100%);max-width:220px;
+  animation:ruleIn 700ms var(--e-out) 620ms both}
+.credit{margin-top:22px;animation:fadeUp 480ms var(--e-out) 720ms both}
+.credit-n{font:500 15px/1.3 var(--font-body);letter-spacing:.02em;color:var(--color-neutral-200)}
+.credit-t{margin-top:5px;font:400 13px/1.4 var(--font-body);color:var(--color-neutral-500)}
+.end-acts{display:flex;align-items:center;gap:26px;flex-wrap:wrap;margin-top:clamp(26px,4dvh,40px);
+  animation:fadeUp 480ms var(--e-out) 840ms both}
+.btn-line{display:inline-flex;align-items:center;gap:10px;padding:14px 22px;border-radius:var(--radius-sm);
+  border:1px solid var(--color-neutral-700);color:var(--color-neutral-100);font:500 15px/1 var(--font-body);
+  transition:background var(--t-fast) var(--e-out),border-color var(--t-fast) var(--e-out)}
+/* the closing button is Teora's, not the campaign's — it stays neutral so the
+   green and yellow keep meaning "campaign" everywhere else */
+.btn-line:hover{background:color-mix(in srgb,var(--color-neutral-100) 9%,transparent);border-color:var(--color-neutral-500)}
+.btn-txt{font:400 15px/1 var(--font-body);color:var(--color-neutral-400);
+  border-bottom:1px solid var(--line);padding-bottom:3px;transition:color var(--t-fast),border-color var(--t-fast)}
+.btn-txt:hover{color:var(--color-text);border-color:var(--color-neutral-500)}
+
+/* ═══ INTRO GEOMETRY ═════════════════════════════════════════════════════
+   Portrait and small screens get their own composition — film on top, copy
+   beneath — rather than a shrunken version of the split layout.
+   ═══════════════════════════════════════════════════════════════════════ */
+/* Stacked: film first, then the words, sharing one left edge.
+   The film has first claim on the space — it fills the column, and only gives
+   height back when the copy would otherwise have nowhere to go. The headline
+   is then sized from what is actually left, so the block always lands inside
+   the screen without any single number having to be right. */
+[data-phase="intro"]{
+  /* Reading order, top to bottom: title, film, action — with the whole group
+     centred in what is left after the Capítulos button and the bottom margin.
+     Every term is known, so the group is placed without measuring anything. */
+  --top-band:calc(var(--safe-t) + var(--pad-v) + 46px);
+  --btm-band:calc(var(--safe-b) + clamp(16px,3dvh,34px));
+  --gap-t:clamp(14px,2.2dvh,26px);        /* title → film */
+  --gap-a:clamp(16px,2.4dvh,28px);        /* film → action */
+  --act-h:64px;
+  --title-size:min(calc((100vw - var(--gl) - var(--gr)) / 11.4), 64px);
+  --head-h:calc(12px + 14px + 1.06 * var(--title-size));
+
+  --fmaxw:min(calc(100vw - var(--gl) - var(--gr)), 56dvh);
+  --fmaxh:max(150px, calc(100dvh - var(--top-band) - var(--btm-band)
+             - var(--head-h) - var(--gap-t) - var(--gap-a) - var(--act-h)));
+  --group-h:calc(var(--head-h) + var(--gap-t) + var(--fh) + var(--gap-a) + var(--act-h));
+  --group-top:calc(var(--top-band)
+             + max(0px, (100dvh - var(--top-band) - var(--btm-band) - var(--group-h)) / 2));
+
+  --fx:calc((100vw - var(--fw)) / 2);
+  --fy:calc(var(--group-top) + var(--head-h) + var(--gap-t));
+}
+
+/* The title block hangs off the film's top edge rather than being pushed down
+   from above, so a name that wraps grows into the free space instead of
+   shoving the film off the screen. */
+[data-phase="intro"] .copy{
+  left:var(--gl);right:var(--gr);top:auto;
+  bottom:calc(100dvh - var(--group-top) - var(--head-h));
+  text-align:center;
+}
+[data-phase="intro"] .eyebrow{justify-content:center}
+[data-phase="intro"] .eyebrow i{display:none}
+[data-phase="intro"] .title{margin-top:14px}
+[data-phase="intro"] .lead{display:none}
+[data-phase="intro"] .act{
+  position:fixed;left:var(--fx);right:var(--gr);
+  top:calc(var(--fy) + var(--fh) + var(--gap-a));
+  display:flex;flex-direction:column;align-items:flex-start;
+}
+[data-phase="intro"] .cta{margin-top:0}
+[data-phase="intro"] .cta-txt{align-items:flex-start}
+
+
+/* landscape, room to breathe: copy left, film right, bounded by each other.
+   The closing screen takes the same composition, with the film held as a
+   dimmed freeze-frame where it has been all along. */
+/* Landscape is the trigger, not raw width: a phone held sideways has the same
+   problem a desktop has — height, not room — so it gets the side-by-side
+   composition too, at its own scale. */
+@media (min-width:560px) and (min-aspect-ratio:1/1){
+  [data-phase="intro"],[data-phase="end"]{
+    /* the 44px floor keeps the film clear of the Capítulos button on a short
+       landscape screen, where 7dvh would not be enough */
+    --fmaxh:calc(100dvh - var(--safe-t) - var(--safe-b) - 2*clamp(44px,7dvh,84px));
+    --fmaxw:min(calc(46vw - var(--gr)), 640px);
+    --fx:calc(100vw - var(--gr) - var(--fw));
+    --fy:calc(var(--safe-t) + (100dvh - var(--safe-t) - var(--safe-b) - var(--fh))/2 + 1.2vh);
+  }
+  [data-phase="end"] .frame{opacity:.3;box-shadow:0 0 0 1px var(--frame-edge)}
+  .end{padding-right:calc(100vw - var(--fx) + clamp(28px,3vw,64px))}
+  /* the copy column hangs from the same line the film starts on, and is
+     bounded by the film's left edge — one shared alignment, not two
+     independently centred blocks */
+  /* with a one-line headline the copy block is short, so it centres on the
+     film's middle instead of hanging from its top edge and leaving a void */
+  [data-phase="intro"] .copy{
+    left:var(--gl);right:calc(100vw - var(--fx) + clamp(28px,3vw,64px));
+    top:calc(var(--fy) + var(--fh)/2);transform:translateY(-50%);bottom:auto;text-align:left;
+  }
+  .exp:not([data-phase="intro"]) .copy{transform:translateY(calc(-50% - 8px))}
+  /* side by side, the copy is one flowing column again: the action sits back
+     under the words instead of being placed against the film */
+  [data-phase="intro"] .act{position:static;display:block}
+  [data-phase="intro"] .cta{margin-top:clamp(22px,3.4dvh,38px)}
+  [data-phase="intro"] .cta-txt{align-items:flex-start}
+  [data-phase="intro"] .eyebrow{justify-content:flex-start}
+  [data-phase="intro"] .eyebrow i{display:block}
+  [data-phase="intro"] .title{
+    font-size:min(calc((100vw - var(--gl) - (100vw - var(--fx)) - clamp(28px,3vw,64px)) / 11.4), 104px);
+    margin-top:clamp(16px,2.4dvh,26px)}
+  [data-phase="intro"] .lead{display:block}
+  /* the place stamp only earns its space where there is space for it */
+  [data-phase="intro"] .foot{opacity:1;animation:fade var(--t-slow) var(--e-out) 900ms both}
+}
+/* landscape with little height: the lead makes way, the headline scales down */
+@media (max-height:600px) and (min-aspect-ratio:1/1){
+  [data-phase="intro"] .lead{display:none}
+  .cta{margin-top:22px}
+}
+
+/* On a tall screen a mathematically centred block sits low; lift it a little
+   so it reads as centred. */
+@media (max-aspect-ratio:3/4){
+  .exp:not([data-phase="intro"]){
+    --fy:calc(var(--stage-t) + (var(--stage-h) - var(--fh))/2
+              - min(52px, (var(--stage-h) - var(--fh))/5));
+  }
+}
+
+/* narrow: the film keeps its size, the chrome gets simpler */
+@media (max-width:520px){
+  .exp{--topbar:46px;--ctrls:100px}
+  .row{gap:10px}
+  .ibtn{width:42px;height:42px}
+  .nextbtn{padding-left:8px;font-size:14px}
+  .full-btn{display:none}
+  .crow{grid-template-columns:2.2em 1fr auto;gap:12px;padding:14px 6px 14px 10px}
+}
+/* very short landscape (phones turned sideways): trim vertical chrome */
+@media (max-height:520px) and (min-aspect-ratio:1/1){
+  .exp{--topbar:40px;--ctrls:84px;--pad-v:8px}
+  .row{margin-top:10px}
+  .pbtn{width:44px;height:44px}
+}
+
+@keyframes lineUp{from{transform:translateY(102%)}to{transform:translateY(0)}}
+@keyframes fadeUp{from{opacity:0;transform:translateY(9px)}to{opacity:1;transform:translateY(0)}}
+@keyframes fade{from{opacity:0}to{opacity:1}}
+@keyframes ruleIn{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+@keyframes cardBar{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* touch: no hover to reveal anything — the knob is always at full size */
+@media (hover:none){
+  .knob{transform:translate(-50%,-50%) scale(1)}
+  .scrub{height:26px}
+}
+
+/* Reduced motion: keep the orienting fades, drop every movement.
+   The frame stops travelling and simply changes place. */
+@media (prefers-reduced-motion:reduce){
+  .exp{--t-morph:1ms}
+  .frame,.bar-top,.bar-bot,.btn-list{transition-property:opacity}
+  .ln>span,.card-title{animation:fade 320ms var(--e-out) both}
+  .eyebrow,.lead,.cta,.crow,.card-num,.end-sub,.credit,.end-acts{
+    animation:fade 320ms var(--e-out) both}
+  .eyebrow i,.end-rule{animation:fade 320ms var(--e-out) both;transform:none}
+  .card-rule{animation:none;transform:scaleX(1)}
+  .cta-rule,.nextbtn svg,.cta-disc svg,.knob{transition:none}
+  .spin{animation-duration:1400ms}
+}
+</style>
+</helmet>
+
+<div ref="{{stageRef}}" class="exp" data-phase="{{phase}}" data-screen-label="Experiência" style="--ar:{{ar}};--fit:{{fit}};--card-ms:{{cardMs}}ms">
+
+<div class="ground"></div>
+<div class="flag" aria-hidden="true"></div>
+
+<!-- One film frame, one video element, for the whole experience: the chapter
+     you are about to watch is already the one buffering behind the intro. -->
+<div class="frame">
+  <video ref="{{setVideo}}" class="media" src="{{videoSrc}}" poster="{{posterSrc}}"
+    autoPlay="{{ambient}}" muted="{{ isMuted }}" loop="{{ isIntro }}" playsInline="{{ true }}"
+    preload="{{preload}}" onClick="{{toggle}}" onTimeUpdate="{{onTime}}" onLoadedMetadata="{{onMeta}}"
+    onProgress="{{onBuf}}" onEnded="{{onEnded}}" onPlay="{{onPlay}}" onPause="{{onPause}}"
+    onWaiting="{{onWaiting}}" onPlaying="{{onPlaying}}"></video>
+
+  <sc-if value="{{buffering}}" hint-placeholder-val="{{ false }}">
+    <div class="spin" aria-hidden="true"></div>
+  </sc-if>
+
+  <sc-if value="{{showPause}}" hint-placeholder-val="{{ false }}">
+    <div class="veil" onClick="{{toggle}}" aria-hidden="true">
+      <div class="veil-disc"><svg width="26" height="26" viewBox="0 0 16 16" fill="currentColor" style="margin-left:.16em" aria-hidden="true"><path d="M3 1.6 13.6 8 3 14.4z"></path></svg></div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{isCard}}" hint-placeholder-val="{{ false }}">
+    <div class="card" onClick="{{playNow}}" data-screen-label="Capítulo">
+      <div class="card-num">Capítulo {{curNum}} — {{curDur}}</div>
+      <div class="card-title">{{curTitle}}</div>
+      <div class="card-rule"></div>
+    </div>
+  </sc-if>
+</div>
+
+<!-- Intro copy — always mounted so it can fade out as the frame travels -->
+<div class="copy" data-screen-label="Abertura">
+  <div class="eyebrow"><i></i>Roberto Nem &amp; Prof.º Ailton Gordiano</div>
+  <h1 class="title"><span class="ln"><span>A força que vem do povo</span></span></h1>
+  <p class="lead">Dez capítulos sobre Taquarussu, o que foi feito e o que ainda vem.</p>
+  <!-- The action is its own block so the stacked layout can lift the title
+       above the film and leave the button below it. -->
+  <div class="act">
+    <button class="cta" onClick="{{start}}">
+      <span class="cta-disc"><svg width="20" height="20" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M3 1.6 13.6 8 3 14.4z"></path></svg></span>
+      <span class="cta-txt">
+        <span class="cta-lbl">Assistir</span>
+        <span class="cta-rule"></span>
+      </span>
+    </button>
+  </div>
+</div>
+
+<div class="foot">Taquarussu · Mato Grosso do Sul</div>
+
+<!-- Player chrome, pinned to the frame -->
+<div class="bar-top">
+  <span class="now-num">{{curNum}}</span>
+  <span class="now-title">{{curTitle}}</span>
+</div>
+
+<div class="bar-bot">
+  <div class="scrub {{scrubCls}}" onPointerDown="{{seekDown}}" onPointerMove="{{seekMove}}" onPointerUp="{{seekUp}}"
+    onKeyDown="{{seekKey}}" tabIndex="{{scrubTab}}" role="slider" aria-label="Posição do vídeo"
+    aria-valuemin="{{ 0 }}" aria-valuemax="{{ 100 }}" aria-valuenow="{{progressRounded}}" aria-valuetext="{{timeLabel}}">
+    <div class="rail">
+      <div class="buf" style="width:{{bufPct}}%"></div>
+      <div class="fill" style="width:{{progressPct}}%"></div>
+      <div class="knob" style="left:{{progressPct}}%"></div>
+    </div>
+  </div>
+  <div class="row">
+    <button class="pbtn" onClick="{{toggle}}" aria-label="{{playLabel}}">
+      <sc-if value="{{playing}}" hint-placeholder-val="{{ false }}"><svg width="17" height="17" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M3.4 2h3.1v12H3.4zM9.5 2h3.1v12H9.5z"></path></svg></sc-if>
+      <sc-if value="{{notPlaying}}" hint-placeholder-val="{{ true }}"><svg width="17" height="17" viewBox="0 0 16 16" fill="currentColor" style="margin-left:.18em" aria-hidden="true"><path d="M3 1.6 13.6 8 3 14.4z"></path></svg></sc-if>
+    </button>
+    <span class="time">{{timeLabel}}</span>
+    <span class="grow"></span>
+    <button class="ibtn" onClick="{{toggleMute}}" aria-label="{{soundLabel}}">
+      <sc-if value="{{soundOn}}" hint-placeholder-val="{{ true }}"><svg width="18" height="18" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M2.4 6h2.3L8.6 2.9v10.2L4.7 10H2.4z"></path><path d="M10.6 5.6a3.2 3.2 0 0 1 0 4.8V9.1a1.8 1.8 0 0 0 0-2.2z"></path></svg></sc-if>
+      <sc-if value="{{soundOff}}" hint-placeholder-val="{{ false }}"><svg width="18" height="18" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M2.4 6h2.3L8.6 2.9v10.2L4.7 10H2.4z"></path><path d="m10.7 6.3 1.2 1.2 1.2-1.2.9.9-1.2 1.2 1.2 1.2-.9.9-1.2-1.2-1.2 1.2-.9-.9L11 8.4 9.8 7.2z"></path></svg></sc-if>
+    </button>
+    <button class="ibtn full-btn" onClick="{{toggleFull}}" aria-label="Tela cheia">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M6 2H2v4M10 2h4v4M6 14H2v-4M10 14h4v-4"></path></svg>
+    </button>
+    <button class="nextbtn" onClick="{{next}}">
+      {{nextLabel}}
+      <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M2.5 8h11M9.5 4l4 4-4 4"></path></svg>
+    </button>
+  </div>
+</div>
+
+<sc-if value="{{showListBtn}}" hint-placeholder-val="{{ true }}">
+<button class="btn-list" onClick="{{openList}}">
+  <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M2 4h12M2 8h12M2 12h12"></path></svg>
+  Capítulos
+</button>
+</sc-if>
+
+<sc-if value="{{showList}}" hint-placeholder-val="{{ false }}">
+<div class="sheet" data-screen-label="Capítulos">
+  <div class="sheet-in">
+    <div class="sheet-head">
+      <h2 class="sheet-title">Dez capítulos</h2>
+      <button class="sheet-close" onClick="{{closeList}}">Fechar</button>
+    </div>
+    <sc-for list="{{chapters}}" as="ch" hint-placeholder-count="10">
+      <button class="crow {{ch.cls}}" onClick="{{ch.pick}}" style="animation-delay:{{ch.delay}}ms">
+        <span class="crow-n">{{ch.num}}</span>
+        <span class="crow-t">{{ch.title}}</span>
+        <span class="crow-d">{{ch.dur}}</span>
+      </button>
+    </sc-for>
+  </div>
+</div>
+</sc-if>
+
+<sc-if value="{{isEnd}}" hint-placeholder-val="{{ false }}">
+<div class="end" data-screen-label="Final">
+  <div class="end-in">
+    <h2><span class="ln"><span>Obrigado por assistir.</span></span></h2>
+    <p class="end-sub">A força que vem do povo.</p>
+    <div class="end-rule"></div>
+    <div class="credit">
+      <div class="credit-n">Teora Solutions</div>
+      <div class="credit-t">Tecnologia que gera resultado.</div>
+    </div>
+    <div class="end-acts">
+      <a class="btn-line" href="{{contactUrl}}">Vamos conversar</a>
+      <button class="btn-txt" onClick="{{restart}}">Assistir novamente</button>
+    </div>
+  </div>
+</div>
+</sc-if>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;autoContinue&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Fluxo&quot;},&quot;showListButton&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Fluxo&quot;},&quot;contactUrl&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;mailto:contato@teorasolutions.com.br&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Contato&quot;}}">
+class Component extends DCLogic {
+  /* Chapter data carries the real numbers read off the files: duration, and
+     the frame ratio each one was shot at. The layout is driven by `ar`, so a
+     vertical chapter gets a vertical frame instead of a cropped one. */
+  chapters = [
+    { file: 'Um pouco da minha história no município de Taquarussu. _Tenho orgulho das minhas raízes e quero fazer muito mais por minha cidade._VOTE 1️⃣5️⃣(MP4.mp4', title: 'Minha história', dur: 49, ar: 1 },
+    { file: 'SAÚDE É PRIORIDADE _SAÚDE É COMPROMISSO _SAÚDE É INVESTIMENTOS_SAÚDE É HUMANIZAÇÃO_SAÚDE É VIDA__VOTE 1️⃣ 5️⃣___robertonem _ailtongordia(.mp4', title: 'Saúde é prioridade', dur: 61, ar: 1 },
+    { file: 'Habitação foi e continuará sendo um dos pontos principais da nossa administração. __AFORÇAQUEVEMDOPOVO__VOTE15(MP4).mp4', title: 'Habitação', dur: 61, ar: 1 },
+    { file: 'ATERRO SANITÁRIO _VOTE 1️⃣5️⃣🚀🚀___robertonem _ailtongordiano _aforçaquevemdopovo💪 _vote15 _sou15 _eleicoesmunicipais2024(MP4).mp4', title: 'Aterro sanitário', dur: 69, ar: 1 },
+    { file: 'PÁTIO DE INERTES_VAMOS JUNTOS VOLTAR FAZER GESTÃO COM RESPONSABILIDADE._VOTE 1️⃣5️⃣🚀🚀(MP4).mp4', title: 'Pátio de inertes', dur: 37, ar: 1 },
+    { file: 'É SÉRIO__ SIM...__ESTAMOS CHEGANDO AGORA PELOS CORREIOS._VOTE 1️⃣5️⃣ _COLIGAÇÃO_  A FORÇA QUE VEM DO POVO___robertonemeailtongordiano _correios(.mp4', title: 'Chegando pelos Correios', dur: 39, ar: 0.5625 },
+    { file: 'QUANDO O POVO QUER É ASSIM _VEM COM ROBERTO NEM _E PROF° AILTON GORDIANO _AGORA É 1️⃣5️⃣🚀🚀 ___robertonem _ailtongordiano _AForçaQueVemdoPo(.mp4', title: 'Quando o povo quer', dur: 46, ar: 1 },
+    /* this one was exported square inside a 9:16 canvas — measured content is
+       360x360 at y=140, so it takes a square frame and crops its own bars */
+    { file: '_convenção __aforçaquevemdopovo💪 __robertonem(MP4).mp4', title: 'A convenção', dur: 90, ar: 1, fit: 'cover' },
+    { file: 'NOSSO ESQUENTA FOI NOTA 1️⃣5️⃣🚀🚀_O HOMEM TA DISPARADO _VOTE 1️⃣5️⃣. ___eleicoesmunicipais2024 _ailtongordiano _robertonem _AforçaQueV(.mp4', title: 'O esquenta', dur: 63, ar: 1 },
+    { file: 'VOTE 1️⃣5️⃣🚀🚀 __AFORÇAQUEVEMDOPOVO(MP4).mp4', title: 'A força que vem do povo', dur: 49, ar: 1 }
+  ];
+
+  CARD_MS = 2200;
+
+  state = {
+    phase: 'intro', idx: 0, playing: false, buffering: false,
+    muted: false, cur: 0, dur: 0, buf: 0, showList: false, canSeek: true
+  };
+
+  /* ── data helpers ─────────────────────────────────────────────────────── */
+  /* On a metered or slow connection the opening frame stays a poster instead
+     of a looping film: nothing is downloaded until the visitor asks for it. */
+  thrifty() {
+    const c = navigator.connection;
+    if (!c) return false;
+    return !!c.saveData || /^(slow-)?2g$/.test(c.effectiveType || '');
+  }
+
+  src(i) { return 'uploads/' + encodeURIComponent(this.chapters[i].file); }
+  poster(i) { return 'posters/' + String(i + 1).padStart(2, '0') + '.jpg'; }
+  fmt(t) { t = Math.max(0, Math.round(t || 0)); return Math.floor(t / 60) + ':' + String(t % 60).padStart(2, '0'); }
+  totalLabel() {
+    const s = this.chapters.reduce((a, c) => a + c.dur, 0);
+    return Math.round(s / 60) + ' min';
+  }
+
+  /* ── lifecycle ────────────────────────────────────────────────────────── */
+  _thrifty = this.thrifty();
+
+  componentDidMount() {
+    this._key = (e) => {
+      const st = this.state;
+      if (st.showList) { if (e.key === 'Escape') this.setState({ showList: false }); return; }
+      if (st.phase === 'intro') {
+        if (e.key === 'Enter' || e.code === 'Space') { e.preventDefault(); this.start(); }
+        return;
+      }
+      if (st.phase === 'card' && (e.key === 'Enter' || e.code === 'Space' || e.key === 'ArrowRight')) {
+        e.preventDefault(); this.playNow(); return;
+      }
+      if (st.phase !== 'video') return;
+      if (e.code === 'Space' || e.key === 'k') { e.preventDefault(); this.toggle(); }
+      else if (e.key === 'ArrowRight') this.nudge(5);
+      else if (e.key === 'ArrowLeft') this.nudge(-5);
+      else if (e.key === 'm') this.toggleMute();
+      else if (e.key === 'n') this.next();
+      else if (e.key === 'f') this.toggleFull();
+    };
+    window.addEventListener('keydown', this._key);
+  }
+  componentWillUnmount() {
+    window.removeEventListener('keydown', this._key);
+    clearTimeout(this._cardT);
+  }
+
+  setVideo = (el) => { this.video = el; };
+
+  /* Warm the next chapter's poster while the current one plays, so the card
+     never opens on an empty frame. One image, not a second video stream. */
+  warmNext() {
+    const n = this.state.idx + 1;
+    if (n >= this.chapters.length || this._warmed === n) return;
+    this._warmed = n;
+    const img = new Image();
+    img.src = this.poster(n);
+  }
+
+  /* ── flow ─────────────────────────────────────────────────────────────── */
+  play(at) {
+    const v = this.video;
+    if (!v) return;
+    v.loop = false;
+    v.muted = this.state.muted;
+    const go = () => {
+      if (at != null && isFinite(v.duration) && at < v.duration - 6) v.currentTime = at;
+      const p = v.play();
+      if (p && p.catch) p.catch(() => this.setState({ playing: false }));
+    };
+    if (v.readyState >= 1) go();
+    else v.addEventListener('loadedmetadata', go, { once: true });
+  }
+
+  start = () => {
+    if (this.state.phase !== 'intro') return;
+    this.setState({ phase: 'video', cur: 0, buf: 0 });
+    this.play(0);
+  };
+
+  /* Move to a chapter: swap the source, hold a title card over the frame
+     while it loads, then roll. The card is the load mask, not decoration. */
+  toChapter(i) {
+    if (i >= this.chapters.length) { this.finish(); return; }
+    clearTimeout(this._cardT);
+    const v = this.video;
+    if (v) v.pause();
+    this.setState({
+      phase: 'card', idx: i, cur: 0, dur: this.chapters[i].dur, buf: 0,
+      playing: false, buffering: false, showList: false
+    });
+    this._cardT = setTimeout(this.playNow, this.CARD_MS);
+  }
+
+  playNow = () => {
+    clearTimeout(this._cardT);
+    if (this.state.phase !== 'card') return;
+    this.setState({ phase: 'video' });
+    this.play(0);
+  };
+
+  finish() {
+    clearTimeout(this._cardT);
+    const v = this.video;
+    if (v) v.pause();
+    this.setState({ phase: 'end', playing: false, buffering: false, showList: false });
+  }
+
+  next = () => this.toChapter(this.state.idx + 1);
+
+  restart = () => {
+    clearTimeout(this._cardT);
+    const v = this.video;
+    if (v) { v.pause(); v.currentTime = 0; }
+    this.setState({ phase: 'intro', idx: 0, cur: 0, buf: 0, playing: false, showList: false });
+    setTimeout(() => { const el = this.video; if (el) { el.loop = true; el.muted = true; el.play().catch(() => {}); } }, 40);
+  };
+
+  /* ── transport ────────────────────────────────────────────────────────── */
+  toggle = () => {
+    const v = this.video;
+    if (!v || this.state.phase !== 'video') return;
+    if (v.paused) { const p = v.play(); if (p && p.catch) p.catch(() => {}); } else v.pause();
+  };
+  nudge(sec) {
+    const v = this.video;
+    if (!v || !isFinite(v.duration)) return;
+    v.currentTime = Math.max(0, Math.min(v.duration - 0.2, v.currentTime + sec));
+    this.setState({ cur: v.currentTime });
+  }
+  toggleMute = () => {
+    const v = this.video;
+    const m = !this.state.muted;
+    if (v) v.muted = m;
+    this.setState({ muted: m });
+  };
+  toggleFull = () => {
+    if (document.fullscreenElement) document.exitFullscreen();
+    else if (this.stage && this.stage.requestFullscreen) this.stage.requestFullscreen().catch(() => {});
+  };
+
+  seekable(v) {
+    return !!v && v.seekable && v.seekable.length > 0 && v.seekable.end(v.seekable.length - 1) > 0;
+  }
+  seekAt(e) {
+    const v = this.video;
+    if (!v || !isFinite(v.duration) || !v.duration) return;
+    const r = e.currentTarget.getBoundingClientRect();
+    const p = Math.max(0, Math.min(1, (e.clientX - r.left) / r.width));
+    v.currentTime = p * v.duration;
+    this.setState({ cur: v.currentTime });
+  }
+  seekDown = (e) => {
+    if (this.state.phase !== 'video') return;
+    this._drag = true;
+    if (e.currentTarget.setPointerCapture) { try { e.currentTarget.setPointerCapture(e.pointerId); } catch (err) {} }
+    this.seekAt(e);
+  };
+  seekMove = (e) => { if (this._drag) this.seekAt(e); };
+  seekUp = () => { this._drag = false; };
+  seekKey = (e) => {
+    if (e.key === 'ArrowRight') { e.preventDefault(); this.nudge(5); }
+    else if (e.key === 'ArrowLeft') { e.preventDefault(); this.nudge(-5); }
+  };
+
+  /* ── render values ────────────────────────────────────────────────────── */
+  renderVals() {
+    const { phase, idx, playing, buffering, muted, cur, dur, buf, showList, canSeek } = this.state;
+    const ch = this.chapters[idx];
+    const last = idx === this.chapters.length - 1;
+    const shown = dur || ch.dur;
+
+    return {
+      phase, ar: ch.ar || 1, fit: ch.fit || 'contain', cardMs: this.CARD_MS,
+      ambient: !this._thrifty, preload: this._thrifty ? 'metadata' : 'auto',
+      isIntro: phase === 'intro', isCard: phase === 'card', isEnd: phase === 'end',
+      isMuted: phase === 'intro' ? true : muted,
+
+      videoSrc: this.src(idx), posterSrc: this.poster(idx),
+      curNum: String(idx + 1).padStart(2, '0'), curTitle: ch.title, curDur: this.fmt(ch.dur),
+
+      playing, notPlaying: !playing, buffering,
+      showPause: phase === 'video' && !playing && !buffering,
+      playLabel: playing ? 'Pausar' : 'Reproduzir',
+      soundOn: !muted, soundOff: muted, soundLabel: muted ? 'Ativar o som' : 'Desativar o som',
+      nextLabel: last ? 'Encerrar' : 'Próximo',
+
+      progressPct: shown ? Math.min(100, (cur / shown) * 100) : 0,
+      progressRounded: shown ? Math.round((cur / shown) * 100) : 0,
+      bufPct: shown ? Math.min(100, (buf / shown) * 100) : 0,
+      timeLabel: this.fmt(cur) + ' / ' + this.fmt(shown),
+      scrubCls: canSeek ? '' : 'locked', scrubTab: canSeek ? 0 : -1,
+
+      showList,
+      showListBtn: (this.props.showListButton ?? true) && !showList && phase !== 'end',
+      contactUrl: this.props.contactUrl ?? 'mailto:contato@teorasolutions.com.br',
+
+      chapters: this.chapters.map((c, i) => ({
+        num: String(i + 1).padStart(2, '0'), title: c.title, dur: this.fmt(c.dur),
+        cls: i === idx && phase !== 'intro' ? 'on' : '',
+        delay: Math.min(i * 22, 200),
+        pick: () => { this.setState({ showList: false }); this.toChapter(i); }
+      })),
+
+      stageRef: (el) => { this.stage = el; },
+      setVideo: this.setVideo,
+      start: this.start, playNow: this.playNow, restart: this.restart,
+      toggle: this.toggle, next: this.next,
+      toggleMute: this.toggleMute, toggleFull: this.toggleFull,
+      seekDown: this.seekDown, seekMove: this.seekMove, seekUp: this.seekUp, seekKey: this.seekKey,
+      openList: () => this.setState({ showList: true }),
+      closeList: () => this.setState({ showList: false }),
+
+      onTime: () => {
+        const v = this.video;
+        if (!v || this.state.phase !== 'video') return;
+        this.setState({ cur: v.currentTime });
+        if (v.currentTime > 3) this.warmNext();
+      },
+      onMeta: () => {
+        const v = this.video;
+        if (!v) return;
+        /* a chapter that never declared its shape learns it from the file, so
+           a clip added later still gets a frame cut to its own proportions */
+        if (ch.ar == null && v.videoWidth && v.videoHeight) {
+          ch.ar = +(v.videoWidth / v.videoHeight).toFixed(4);
+          this.forceUpdate();
+        }
+        const d = isFinite(v.duration) ? v.duration : 0;
+        const can = this.seekable(v);
+        if (d || can !== this.state.canSeek) this.setState({ dur: d || this.state.dur, canSeek: can });
+      },
+      onBuf: () => {
+        const v = this.video;
+        if (!v || !v.buffered || !v.buffered.length) return;
+        let end = 0;
+        for (let i = 0; i < v.buffered.length; i++) {
+          if (v.buffered.start(i) <= v.currentTime + 0.1) end = Math.max(end, v.buffered.end(i));
+        }
+        if (Math.abs(end - this.state.buf) > 0.4) this.setState({ buf: end });
+      },
+      onEnded: () => {
+        if (this.state.phase !== 'video') return;
+        if (this.props.autoContinue ?? true) this.next();
+        else this.setState({ playing: false });
+      },
+      onPlay: () => this.setState({ playing: true }),
+      onPause: () => this.setState({ playing: false }),
+      onWaiting: () => { if (this.state.phase === 'video') this.setState({ buffering: true }); },
+      onPlaying: () => this.setState({ buffering: false, playing: true })
+    };
+  }
+}
+</script>
+</body>
+</html>
