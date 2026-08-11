@@ -6,6 +6,9 @@
 <!-- First paint is the dark ground, never a white flash and never the raw
      template. The runtime hides the template itself, but only once it has
      booted; this covers the gap before that. -->
+<link rel="icon" href="favicon.ico" sizes="any">
+<link rel="apple-touch-icon" href="images/apple-touch-icon.png">
+<title>A força que vem do povo — Roberto Nem e Prof.º Ailton Gordiano</title>
 <style>html,body{margin:0;background:#06100c}x-dc{display:none}</style>
 <!-- React is served from this deployment, not from unpkg. The runtime skips
      its own CDN fetch when window.React is already there, so nothing on the
@@ -67,6 +70,7 @@ html,body{margin:0;padding:0;background:#06100c;overflow:hidden;overscroll-behav
   --t-fast:180ms;--t-mid:320ms;--t-slow:600ms;--t-morph:820ms;
 
   --topbar:54px;--ctrls:104px;
+  --btn-list-w:138px;   /* medido: ícone + "CAPÍTULOS" + respiro */
   --ar:1;
   transition:background-color 900ms var(--e-io);
 
@@ -204,8 +208,10 @@ html,body{margin:0;padding:0;background:#06100c;overflow:hidden;overscroll-behav
 .bar-top{top:calc(var(--fy) - var(--topbar));height:var(--topbar);
   display:flex;align-items:center;gap:14px;min-width:0;
   /* the Capítulos button is positioned over this bar's right end, so the
-     title reserves its width and ellipsises instead of running under it */
-  padding-right:124px}
+     title reserves its width and ellipsises instead of running under it.
+     Kept as a variable next to the button's own sizing: uppercasing the
+     label widened it and a hard-coded reserve silently went stale. */
+  padding-right:calc(var(--btn-list-w) + 10px)}
 .bar-bot{top:calc(var(--fy) + var(--fh));height:var(--ctrls);padding-top:14px;
   container-type:inline-size}
 /* Leaving really is immediate: the instant a chapter ends, its state is
@@ -220,7 +226,8 @@ html,body{margin:0;padding:0;background:#06100c;overflow:hidden;overscroll-behav
 
 .now-num{font:500 12px/1 var(--font-body);letter-spacing:.14em;color:var(--amarelo);
   font-variant-numeric:tabular-nums;flex:none}
-.now-title{font:400 clamp(14px,1.15vw,17px)/1.3 var(--font-body);color:var(--color-neutral-200);
+.now-title{font:600 clamp(13px,1.05vw,15px)/1.3 var(--font-body);color:var(--color-text);
+  text-transform:uppercase;letter-spacing:.07em;
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
 
 /* scrubber */
@@ -248,7 +255,7 @@ html,body{margin:0;padding:0;background:#06100c;overflow:hidden;overscroll-behav
   display:grid;place-items:center;transition:color var(--t-fast),background var(--t-fast)}
 .ibtn:hover{color:var(--color-neutral-100);background:color-mix(in srgb,var(--color-neutral-100) 7%,transparent)}
 .nextbtn{flex:none;display:inline-flex;align-items:center;gap:9px;padding:11px 4px 11px 12px;
-  font:500 15px/1 var(--font-body);color:var(--color-neutral-200);
+  font:600 13px/1 var(--font-body);letter-spacing:.09em;color:var(--color-text);
   transition:color var(--t-fast) var(--e-out)}
 .nextbtn svg{transition:transform 260ms var(--e-out)}
 .nextbtn:hover{color:var(--color-text)}
@@ -262,7 +269,7 @@ html,body{margin:0;padding:0;background:#06100c;overflow:hidden;overscroll-behav
   .pbtn{width:46px;height:46px}
   .ibtn{width:38px;height:38px}
   .time{font-size:12px}
-  .nextbtn{font-size:14px;gap:7px;padding-left:8px}
+  .nextbtn{font-size:12px;gap:7px;padding-left:8px;letter-spacing:.06em}
 }
 @container (max-width:330px){
   .full-btn{display:none}
@@ -280,12 +287,6 @@ html,body{margin:0;padding:0;background:#06100c;overflow:hidden;overscroll-behav
   border:2px solid color-mix(in srgb,var(--amarelo) 24%,transparent);
   border-top-color:var(--amarelo);animation:spin 700ms linear infinite;pointer-events:none}
 
-/* the ballot mark: fixed to the frame's own top-right corner, scaled off the
-   frame's container size so it holds proportion across every video shape */
-.badge{position:absolute;top:clamp(8px,3.4cqw,16px);right:clamp(8px,3.4cqw,16px);
-  width:clamp(38px,11cqw,64px);aspect-ratio:1;pointer-events:none;
-  filter:drop-shadow(0 2px 6px rgba(0,0,0,.5))}
-
 /* ═══ CHAPTER CARD — the title card that covers the next chapter's load ══ */
 .card{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:flex-end;
   padding:6cqw;cursor:pointer;
@@ -293,7 +294,8 @@ html,body{margin:0;padding:0;background:#06100c;overflow:hidden;overscroll-behav
   animation:fade 380ms var(--e-out) both}
 .card-num{font:500 clamp(10px,2.6cqw,13px)/1 var(--font-body);letter-spacing:.18em;text-transform:uppercase;
   color:var(--amarelo);animation:fadeUp 460ms var(--e-out) 60ms both}
-.card-title{margin-top:.5em;font:500 clamp(22px,7.4cqw,46px)/1.08 var(--font-heading);letter-spacing:-.025em;
+.card-title{margin-top:.5em;font:700 clamp(20px,6.6cqw,42px)/1.1 var(--font-heading);
+  text-transform:uppercase;letter-spacing:0;
   color:var(--color-text);animation:fadeUp 560ms var(--e-io) 140ms both}
 .card-rule{margin-top:1.4em;height:2px;background:var(--verde-claro);
   transform-origin:left;animation:cardBar var(--card-ms,2200ms) linear 120ms both}
@@ -301,8 +303,8 @@ html,body{margin:0;padding:0;background:#06100c;overflow:hidden;overscroll-behav
 /* ═══ CAPÍTULOS BUTTON ═══════════════════════════════════════════════════ */
 .btn-list{position:absolute;top:calc(var(--safe-t) + var(--pad-v));right:var(--gr);z-index:12;
   display:inline-flex;align-items:center;gap:9px;padding:9px 14px;border-radius:var(--radius-sm);
-  border:1px solid var(--line);color:var(--color-neutral-300);
-  font:500 14px/1 var(--font-body);
+  border:1px solid var(--line);color:var(--color-text);
+  font:600 13px/1 var(--font-body);letter-spacing:.09em;
   transition:color var(--t-fast),border-color var(--t-fast),background var(--t-fast),
              top var(--t-morph) var(--e-io),right var(--t-morph) var(--e-io),opacity var(--t-mid)}
 .btn-list:hover{color:var(--color-text);border-color:var(--verde-claro);
@@ -330,7 +332,8 @@ html,body{margin:0;padding:0;background:#06100c;overflow:hidden;overscroll-behav
   animation:fadeUp 340ms var(--e-out) both}
 .crow:hover{background:color-mix(in srgb,var(--color-neutral-100) 5%,transparent);padding-left:20px}
 .crow-n{font:400 12px/1 var(--font-body);color:var(--color-neutral-600);font-variant-numeric:tabular-nums;letter-spacing:.1em}
-.crow-t{font:400 clamp(16px,1.5vw,19px)/1.3 var(--font-body);color:var(--color-neutral-200)}
+.crow-t{font:600 clamp(14px,1.25vw,16px)/1.3 var(--font-body);color:var(--color-text);
+  text-transform:uppercase;letter-spacing:.06em}
 .crow-d{font:400 12px/1 var(--font-body);color:var(--color-neutral-600);font-variant-numeric:tabular-nums}
 .crow.on .crow-n,.crow.on .crow-t{color:var(--amarelo)}
 /* the mark sits inside the row, so it can never be clipped by a tight gutter */
@@ -562,21 +565,6 @@ html,body{margin:0;padding:0;background:#06100c;overflow:hidden;overscroll-behav
     </div>
   </sc-if>
 
-  <!-- The ballot number, on every chapter, in the one corner nothing else
-       ever occupies. Sized off the frame's own container query units, so it
-       holds the same proportion of the picture whether the chapter is a
-       square clip or a 9:16 one, and stays legible over any footage behind
-       it — a white ring plus a soft shadow do that instead of a solid card,
-       so the mark reads as a badge on the film rather than a sticker over it. -->
-  <div class="badge" aria-hidden="true">
-    <svg viewBox="0 0 100 100" width="100%" height="100%">
-      <circle cx="50" cy="50" r="47" fill="var(--verde)" stroke="var(--color-text)" stroke-width="2.5"></circle>
-      <text x="50" y="38" text-anchor="middle" fill="var(--color-text)"
-        font-family="var(--font-body)" font-weight="600" font-size="15" letter-spacing="1.5">VOTE</text>
-      <text x="50" y="78" text-anchor="middle" fill="var(--color-text)"
-        font-family="var(--font-heading)" font-weight="600" font-size="42" letter-spacing="-1">15</text>
-    </svg>
-  </div>
 </div>
 
 <!-- Intro copy — always mounted so it can fade out as the frame travels -->
@@ -647,7 +635,7 @@ html,body{margin:0;padding:0;background:#06100c;overflow:hidden;overscroll-behav
 <sc-if value="{{showListBtn}}" hint-placeholder-val="{{ true }}">
 <button class="btn-list" onClick="{{openList}}">
   <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M2 4h12M2 8h12M2 12h12"></path></svg>
-  Capítulos
+  CAPÍTULOS
 </button>
 </sc-if>
 
@@ -695,7 +683,7 @@ html,body{margin:0;padding:0;background:#06100c;overflow:hidden;overscroll-behav
 
 </div>
 </x-dc>
-<script type="text/x-dc" data-dc-script data-props="{&quot;autoContinue&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Fluxo&quot;},&quot;showListButton&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Fluxo&quot;},&quot;contactUrl&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;https://wa.me/556799512963&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Contato&quot;}}">
+<script type="text/x-dc" data-dc-script data-props="{&quot;autoContinue&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Fluxo&quot;},&quot;showListButton&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Fluxo&quot;},&quot;contactUrl&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;https://wa.me/556799512963?text=Ol%C3%A1%21%20Tenho%20interesse.&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Contato&quot;}}">
 class Component extends DCLogic {
   /* Chapter data carries the real numbers read off the files: duration, and
      the frame ratio each one was shot at. The layout is driven by `ar`, so a
@@ -951,7 +939,7 @@ class Component extends DCLogic {
       showPause: phase === 'video' && !playing && !buffering,
       playLabel: playing ? 'Pausar' : 'Reproduzir',
       soundOn: !muted, soundOff: muted, soundLabel: muted ? 'Ativar o som' : 'Desativar o som',
-      nextLabel: last ? 'Encerrar' : 'Próximo',
+      nextLabel: last ? 'ENCERRAR' : 'PRÓXIMO',
 
       /* no progressPct / timeLabel here on purpose — paintTime owns those */
       bufPct: shown ? Math.min(100, (buf / shown) * 100) : 0,
@@ -959,7 +947,7 @@ class Component extends DCLogic {
 
       showList,
       showListBtn: (this.props.showListButton ?? true) && !showList && phase !== 'end',
-      contactUrl: this.props.contactUrl ?? 'https://wa.me/556799512963',
+      contactUrl: this.props.contactUrl ?? 'https://wa.me/556799512963?text=' + encodeURIComponent('Olá! Tenho interesse.'),
 
       chapters: this.chapters.map((c, i) => ({
         num: String(i + 1).padStart(2, '0'), title: c.title, dur: this.fmt(c.dur),
