@@ -11,4 +11,7 @@ node_modules/
 # a referência de 1,2MB usada só para gerar images/vote15-wash.webp (68 bytes,
 # já processado e versionado) — não precisa duplicar no repositório
 imagem_colocar_fundo_desfocado.png
+
+# o logo já está versionado em images/teora.webp; esta é a cópia solta na raiz
+/teora.webp
 .vercel
