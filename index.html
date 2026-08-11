@@ -353,15 +353,20 @@ html,body{margin:0;padding:0;background:#06100c;overflow:hidden;overscroll-behav
 .credit-t{margin-top:5px;font:400 13px/1.4 var(--font-body);color:var(--color-neutral-500)}
 .end-acts{display:flex;align-items:center;gap:26px;flex-wrap:wrap;margin-top:clamp(26px,4dvh,40px);
   animation:fadeUp 480ms var(--e-out) 840ms both}
-.btn-line{display:inline-flex;align-items:center;gap:10px;padding:14px 22px;border-radius:var(--radius-sm);
-  border:1px solid var(--color-neutral-700);color:var(--color-neutral-100);font:500 15px/1 var(--font-body);
-  transition:background var(--t-fast) var(--e-out),border-color var(--t-fast) var(--e-out)}
+/* The closing pair is the only place the visitor is asked to do something
+   after the films, so both carry real weight: the contact is a filled button
+   in the same green every other action uses, and the replay is a proper
+   outlined button rather than a line of text. */
+.btn-line{display:inline-flex;align-items:center;gap:11px;padding:16px 26px;border-radius:var(--radius-sm);
+  border:none;background:var(--verde-claro);color:var(--tinta-botao);font:500 16px/1 var(--font-body);
+  transition:background var(--t-fast) var(--e-out),transform var(--t-fast) var(--e-out)}
 /* the closing button is Teora's, not the campaign's — it stays neutral so the
    green and yellow keep meaning "campaign" everywhere else */
-.btn-line:hover{background:color-mix(in srgb,var(--color-neutral-100) 9%,transparent);border-color:var(--color-neutral-500)}
-.btn-txt{font:400 15px/1 var(--font-body);color:var(--color-neutral-400);
-  border-bottom:1px solid var(--line);padding-bottom:3px;transition:color var(--t-fast),border-color var(--t-fast)}
-.btn-txt:hover{color:var(--color-text);border-color:var(--color-neutral-500)}
+.btn-line:hover{background:var(--verde-claro-2);transform:translateY(-1px)}
+.btn-txt{display:inline-flex;align-items:center;padding:16px 24px;border-radius:var(--radius-sm);
+  border:1px solid var(--verde-claro);color:var(--verde-claro);font:500 16px/1 var(--font-body);
+  transition:background var(--t-fast) var(--e-out),color var(--t-fast) var(--e-out)}
+.btn-txt:hover{background:color-mix(in srgb,var(--verde-claro) 16%,transparent);color:var(--verde-claro-2)}
 
 /* ═══ INTRO GEOMETRY ═════════════════════════════════════════════════════
    Portrait and small screens get their own composition — film on top, copy
@@ -667,7 +672,10 @@ html,body{margin:0;padding:0;background:#06100c;overflow:hidden;overscroll-behav
       <div class="credit-t">Tecnologia que gera resultado.</div>
     </div>
     <div class="end-acts">
-      <a class="btn-line" href="{{contactUrl}}">Vamos conversar</a>
+      <a class="btn-line" href="{{contactUrl}}">
+        <svg width="17" height="17" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M5.2 1.6c.4-.1.8.1 1 .5l1 2.1c.2.4.1.9-.2 1.2l-.9.8c.7 1.4 1.8 2.5 3.2 3.2l.8-.9c.3-.3.8-.4 1.2-.2l2.1 1c.4.2.6.6.5 1l-.4 1.7c-.1.5-.6.8-1.1.8C6.6 13.8 2.2 9.4 1.7 3.6c0-.5.3-1 .8-1.1z"></path></svg>
+        Vamos conversar
+      </a>
       <button class="btn-txt" onClick="{{restart}}">Assistir novamente</button>
     </div>
   </div>
@@ -676,7 +684,7 @@ html,body{margin:0;padding:0;background:#06100c;overflow:hidden;overscroll-behav
 
 </div>
 </x-dc>
-<script type="text/x-dc" data-dc-script data-props="{&quot;autoContinue&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Fluxo&quot;},&quot;showListButton&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Fluxo&quot;},&quot;contactUrl&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;mailto:contato@teorasolutions.com.br&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Contato&quot;}}">
+<script type="text/x-dc" data-dc-script data-props="{&quot;autoContinue&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Fluxo&quot;},&quot;showListButton&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Fluxo&quot;},&quot;contactUrl&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;tel:+556799512963&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Contato&quot;}}">
 class Component extends DCLogic {
   /* Chapter data carries the real numbers read off the files: duration, and
      the frame ratio each one was shot at. The layout is driven by `ar`, so a
@@ -938,7 +946,7 @@ class Component extends DCLogic {
 
       showList,
       showListBtn: (this.props.showListButton ?? true) && !showList && phase !== 'end',
-      contactUrl: this.props.contactUrl ?? 'mailto:contato@teorasolutions.com.br',
+      contactUrl: this.props.contactUrl ?? 'tel:+556799512963',
 
       chapters: this.chapters.map((c, i) => ({
         num: String(i + 1).padStart(2, '0'), title: c.title, dur: this.fmt(c.dur),
