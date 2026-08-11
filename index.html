@@ -92,18 +92,17 @@ html,body{margin:0;padding:0;background:#06100c;overflow:hidden;overscroll-behav
 
 .exp[data-phase="video"],.exp[data-phase="card"]{--ink:#07080a}
 
-/* Two very wide, very soft pools of green, off-centre and overlapping, with
-   no stop sharp enough to show an edge — the colour is out of focus by
-   construction, which costs nothing, where a real blur filter would cost a
-   repaint on every frame. */
+/* The campaign's own art, not a synthesised approximation of it: their VOTE
+   15 graphic, blurred at full resolution then collapsed to 16px before any
+   compression — so what's left is pure colour, the orange-to-green field
+   and the badge's glow, with no shape left to read. A raster this small
+   costs about as little as the gradients it replaces (68 bytes) and, being
+   already smooth at the source, never bands or shows a seam when stretched
+   over a wide screen. */
 .ground{position:absolute;inset:0;pointer-events:none;
-  background:
-    radial-gradient(122% 80% at 14% -6%, color-mix(in srgb, var(--verde) 12%, transparent) 0%,
-      color-mix(in srgb, var(--verde) 4%, transparent) 44%, transparent 80%),
-    radial-gradient(104% 74% at 92% 106%, color-mix(in srgb, var(--amarelo) 9%, transparent) 0%,
-      color-mix(in srgb, var(--amarelo) 3%, transparent) 40%, transparent 76%);
-  transition:opacity 900ms var(--e-io)}
-.exp[data-phase="video"] .ground,.exp[data-phase="card"] .ground{opacity:.25}
+  background:url('images/vote15-wash.webp') center/cover;
+  opacity:.4;transition:opacity 900ms var(--e-io)}
+.exp[data-phase="video"] .ground,.exp[data-phase="card"] .ground{opacity:.07}
 
 /* a flag rule along the foot of the page: hard edges, two colours, no glow */
 .flag{position:absolute;left:0;right:0;bottom:0;height:4px;pointer-events:none;
@@ -199,8 +198,14 @@ html,body{margin:0;padding:0;background:#06100c;overflow:hidden;overscroll-behav
 .bar-top{top:calc(var(--fy) - var(--topbar));height:var(--topbar);
   display:flex;align-items:center;gap:14px;min-width:0}
 .bar-bot{top:calc(var(--fy) + var(--fh));height:var(--ctrls);padding-top:14px}
+/* Leaving really is immediate: the instant a chapter ends, its state is
+   already the NEXT chapter's (idx, cur, dur all reset together) — so a
+   280ms fade here would spend that whole time showing "0:00 / [next
+   chapter]" at visible-to-full opacity before it finished disappearing.
+   Zero-duration opacity means the switch is invisible instead of a flash. */
 .exp:not([data-phase="video"]) .bar-top,
-.exp:not([data-phase="video"]) .bar-bot{opacity:0;pointer-events:none;visibility:hidden}
+.exp:not([data-phase="video"]) .bar-bot{opacity:0;pointer-events:none;visibility:hidden;
+  transition-duration:0s}
 [data-phase="video"] .bar-top,[data-phase="video"] .bar-bot{visibility:visible}
 
 .now-num{font:500 12px/1 var(--font-body);letter-spacing:.14em;color:var(--amarelo);
