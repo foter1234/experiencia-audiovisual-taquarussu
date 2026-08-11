@@ -572,18 +572,21 @@ html,body{margin:0;padding:0;background:#06100c;overflow:hidden;overscroll-behav
 </div>
 
 <div class="bar-bot">
-  <div class="scrub {{scrubCls}}" onPointerDown="{{seekDown}}" onPointerMove="{{seekMove}}"
+  <!-- Everything that reports time — the fill, the knob, the clock and the
+       slider's aria values — has exactly ONE writer: the animation loop in
+       startTicker, reading video.currentTime. React must not also bind these,
+       because React only touches the DOM when its OWN value changes: if the
+       loop wrote 90% and React then re-renders its unchanged 0%, React skips
+       the write and the stale 90% stays on screen next to a 0:00 clock.
+       Two writers is what caused exactly that. -->
+  <div class="scrub {{scrubCls}}" ref="{{setScrub}}" onPointerDown="{{seekDown}}" onPointerMove="{{seekMove}}"
     onPointerUp="{{seekUp}}" onPointerCancel="{{seekUp}}" onLostPointerCapture="{{seekUp}}"
     onKeyDown="{{seekKey}}" tabIndex="{{scrubTab}}" role="slider" aria-label="Posição do vídeo"
-    aria-valuemin="{{ 0 }}" aria-valuemax="{{ 100 }}" aria-valuenow="{{progressRounded}}" aria-valuetext="{{timeLabel}}">
+    aria-valuemin="{{ 0 }}" aria-valuemax="{{ 100 }}">
     <div class="rail">
       <div class="buf" style="width:{{bufPct}}%"></div>
-      <!-- fill/knob position is driven every animation frame directly off
-           video.currentTime (see startTicker), not off React state — so the
-           bar can never lag behind or freeze independent of what is playing.
-           These bindings only supply the correct first-paint value. -->
-      <div class="fill" ref="{{setFill}}" style="width:{{progressPct}}%"></div>
-      <div class="knob" ref="{{setKnob}}" style="left:{{progressPct}}%"></div>
+      <div class="fill" ref="{{setFill}}"></div>
+      <div class="knob" ref="{{setKnob}}"></div>
     </div>
   </div>
   <div class="row">
@@ -591,7 +594,7 @@ html,body{margin:0;padding:0;background:#06100c;overflow:hidden;overscroll-behav
       <sc-if value="{{playing}}" hint-placeholder-val="{{ false }}"><svg width="17" height="17" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M3.4 2h3.1v12H3.4zM9.5 2h3.1v12H9.5z"></path></svg></sc-if>
       <sc-if value="{{notPlaying}}" hint-placeholder-val="{{ true }}"><svg width="17" height="17" viewBox="0 0 16 16" fill="currentColor" style="margin-left:.18em" aria-hidden="true"><path d="M3 1.6 13.6 8 3 14.4z"></path></svg></sc-if>
     </button>
-    <span class="time">{{timeLabel}}</span>
+    <span class="time" ref="{{setTime}}"></span>
     <span class="grow"></span>
     <button class="ibtn" onClick="{{toggleMute}}" aria-label="{{soundLabel}}">
       <sc-if value="{{soundOn}}" hint-placeholder-val="{{ true }}"><svg width="18" height="18" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M2.4 6h2.3L8.6 2.9v10.2L4.7 10H2.4z"></path><path d="M10.6 5.6a3.2 3.2 0 0 1 0 4.8V9.1a1.8 1.8 0 0 0 0-2.2z"></path></svg></sc-if>
@@ -730,25 +733,43 @@ class Component extends DCLogic {
   setVideo = (el) => { this.video = el; };
   setFill = (el) => { this.fillEl = el; };
   setKnob = (el) => { this.knobEl = el; };
+  setTime = (el) => { this.timeEl = el; };
+  setScrub = (el) => { this.scrubEl = el; };
 
-  /* The scrub bar's position is painted every animation frame, straight off
-     video.currentTime, independent of React's render cycle. A dropped or
-     delayed onTimeUpdate — which happens on real phones under load — can
-     no longer leave the bar stuck while the video keeps playing: this loop
-     has nothing to miss, it just reads where the video already is. */
-  startTicker() {
-    const tick = () => {
-      const v = this.video;
-      /* skip the work entirely while paused or off the video phase — the
-         value can't have changed, so there is nothing to paint */
-      if (v && !v.paused && this.state.phase === 'video' && this.fillEl && this.knobEl) {
-        const d = (isFinite(v.duration) && v.duration) || this.chapters[this.state.idx].dur;
-        const pct = (d ? Math.min(100, Math.max(0, (v.currentTime / d) * 100)) : 0).toFixed(1) + '%';
-        if (this.fillEl.style.width !== pct) this.fillEl.style.width = pct;
-        if (this.knobEl.style.left !== pct) this.knobEl.style.left = pct;
+  /* THE single writer for everything that reports time. It runs every frame
+     and always writes what the video actually is — never skipping on paused
+     or on phase, because a skipped frame is how a stale value gets stranded
+     on screen. The bar, the knob and the clock are all derived from one read
+     of currentTime in one frame, so they cannot disagree with each other.
+     Writes are guarded by a comparison, so a paused video costs no DOM work
+     at all despite the loop running. */
+  paintTime(force) {
+    const v = this.video;
+    if (!v || !this.fillEl) return;
+    if (force) this._lastSec = null;
+    const ch = this.chapters[this.state.idx];
+    const d = (isFinite(v.duration) && v.duration) || (ch && ch.dur) || 0;
+    const t = Math.min(v.currentTime || 0, d || Infinity);
+    const pct = (d ? Math.min(100, Math.max(0, (t / d) * 100)) : 0);
+    const w = pct.toFixed(1) + '%';
+    if (this.fillEl.style.width !== w) this.fillEl.style.width = w;
+    if (this.knobEl && this.knobEl.style.left !== w) this.knobEl.style.left = w;
+    /* the clock only ever changes once a second, so building its string 60
+       times a second would be pure waste on a slow phone: rebuild it only
+       when the whole second (or the duration) actually turns over */
+    const sec = Math.round(t), dsec = Math.round(d);
+    if (sec !== this._lastSec || dsec !== this._lastDur) {
+      this._lastSec = sec; this._lastDur = dsec;
+      const label = this.fmt(t) + ' / ' + this.fmt(d);
+      if (this.timeEl) this.timeEl.textContent = label;
+      if (this.scrubEl) {
+        this.scrubEl.setAttribute('aria-valuenow', String(Math.round(pct)));
+        this.scrubEl.setAttribute('aria-valuetext', label);
       }
-      this._raf = requestAnimationFrame(tick);
-    };
+    }
+  }
+  startTicker() {
+    const tick = () => { this.paintTime(); this._raf = requestAnimationFrame(tick); };
     this._raf = requestAnimationFrame(tick);
   }
 
@@ -831,7 +852,7 @@ class Component extends DCLogic {
     const v = this.video;
     if (!v || !isFinite(v.duration)) return;
     v.currentTime = Math.max(0, Math.min(v.duration - 0.2, v.currentTime + sec));
-    this.setState({ cur: v.currentTime });
+    this.paintTime();
   }
   toggleMute = () => {
     const v = this.video;
@@ -853,7 +874,7 @@ class Component extends DCLogic {
     const r = e.currentTarget.getBoundingClientRect();
     const p = Math.max(0, Math.min(1, (e.clientX - r.left) / r.width));
     v.currentTime = p * v.duration;
-    this.setState({ cur: v.currentTime });
+    this.paintTime();
   }
   seekDown = (e) => {
     if (this.state.phase !== 'video') return;
@@ -890,10 +911,8 @@ class Component extends DCLogic {
       soundOn: !muted, soundOff: muted, soundLabel: muted ? 'Ativar o som' : 'Desativar o som',
       nextLabel: last ? 'Encerrar' : 'Próximo',
 
-      progressPct: shown ? Math.min(100, (cur / shown) * 100) : 0,
-      progressRounded: shown ? Math.round((cur / shown) * 100) : 0,
+      /* no progressPct / timeLabel here on purpose — paintTime owns those */
       bufPct: shown ? Math.min(100, (buf / shown) * 100) : 0,
-      timeLabel: this.fmt(cur) + ' / ' + this.fmt(shown),
       scrubCls: canSeek ? '' : 'locked', scrubTab: canSeek ? 0 : -1,
 
       showList,
@@ -913,14 +932,15 @@ class Component extends DCLogic {
       toggle: this.toggle, next: this.next,
       toggleMute: this.toggleMute, toggleFull: this.toggleFull,
       seekDown: this.seekDown, seekMove: this.seekMove, seekUp: this.seekUp, seekKey: this.seekKey,
-      setFill: this.setFill, setKnob: this.setKnob,
+      setFill: this.setFill, setKnob: this.setKnob, setTime: this.setTime, setScrub: this.setScrub,
       openList: () => this.setState({ showList: true }),
       closeList: () => this.setState({ showList: false }),
 
+      /* nothing here paints any more; the loop does. This only warms the
+         next poster, so it no longer forces a re-render four times a second. */
       onTime: () => {
         const v = this.video;
         if (!v || this.state.phase !== 'video') return;
-        this.setState({ cur: v.currentTime });
         if (v.currentTime > 3) this.warmNext();
       },
       onMeta: () => {
