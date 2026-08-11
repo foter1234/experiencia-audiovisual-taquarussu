@@ -99,10 +99,13 @@ html,body{margin:0;padding:0;background:#06100c;overflow:hidden;overscroll-behav
    costs about as little as the gradients it replaces (68 bytes) and, being
    already smooth at the source, never bands or shows a seam when stretched
    over a wide screen. */
+/* The same wash, the same strength, in every phase — the frame sits on top
+   of it and covers it completely, so it was never touching the video's own
+   colours to begin with; dimming it while watching only made the page
+   around the film darker than the opening for no reason. */
 .ground{position:absolute;inset:0;pointer-events:none;
   background:url('images/vote15-wash.webp') center/cover;
-  opacity:.4;transition:opacity 900ms var(--e-io)}
-.exp[data-phase="video"] .ground,.exp[data-phase="card"] .ground{opacity:.07}
+  opacity:.4}
 
 /* a flag rule along the foot of the page: hard edges, two colours, no glow */
 .flag{position:absolute;left:0;right:0;bottom:0;height:4px;pointer-events:none;
